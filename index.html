@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Computer Use Agent</title>
+<style>
+  /* Chalk marketing palette: green-1 ground, chartreuse primary, mint accents. */
+  :root { --bg:#224A41; --panel:#1C3B34; --panel2:#18332D; --line:#32645B; --ink:#EFF5F3; --muted:#B9CFC7;
+          --accent:#BBD96D; --mint:#70CD96; --err:#F8947F; --mono:ui-monospace,"SFMono-Regular",Menlo,monospace; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; padding:28px 16px; }
+  html.embed body { padding:20px; }
+  html.embed header { display:none; }
+  header { text-align:center; margin-bottom:22px; }
+  h1 { font-size:22px; font-weight:500; margin:0 0 4px; letter-spacing:-0.3px; }
+  .sub { color:var(--muted); font-size:14px; }
+  .label { font:12px/16px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  main { max-width:1180px; margin:0 auto; display:grid; gap:18px; grid-template-columns:minmax(0,4fr) minmax(0,7fr); align-items:start; }
+  @media (max-width: 880px) { main { grid-template-columns:1fr; } .right { order:-1; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:4px; }
+  .compose { padding:16px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 12px; }
+  .chip { font:12px/14px var(--mono); padding:8px 12px; border-radius:20px; cursor:pointer; background:transparent; color:var(--mint); border:1px solid var(--line); }
+  .chip:hover { border-color:var(--mint); }
+  .chip.on { color:var(--bg); background:var(--mint); border-color:var(--mint); }
+  .task { font-size:13.5px; color:var(--muted); background:var(--panel2); border:1px solid var(--line); border-radius:4px; padding:10px 12px; min-height:62px; }
+  textarea { width:100%; min-height:70px; resize:vertical; padding:10px 12px; background:var(--panel2); color:var(--ink);
+             border:1px solid var(--line); border-radius:4px; font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; display:none; }
+  textarea:focus { outline:none; border-color:var(--mint); }
+  .count { font:11px/14px var(--mono); color:var(--muted); text-align:right; margin-top:4px; display:none; }
+  .buttons { display:flex; gap:10px; margin-top:12px; }
+  button.go, button.stop { font:13px/15px var(--mono); text-transform:uppercase; letter-spacing:.06em; border-radius:20px; padding:12px 18px; cursor:pointer; }
+  button.go { flex:1; border:1px solid var(--accent); background:var(--accent); color:var(--bg); transition:background .15s,color .15s; }
+  button.go:hover:not(:disabled) { background:transparent; color:var(--accent); }
+  button.stop { border:1px solid var(--line); background:transparent; color:var(--muted); display:none; }
+  button.stop:hover { color:var(--err); border-color:var(--err); }
+  button:disabled { opacity:.5; cursor:default; }
+  .msg { font-size:13px; margin-top:10px; min-height:18px; color:var(--muted); }
+  .msg.err { color:var(--err); }
+  .steps { display:flex; gap:6px; padding:12px 16px; border-top:1px solid var(--line); flex-wrap:wrap; }
+  .step { font:11px/14px var(--mono); text-transform:uppercase; letter-spacing:.06em; padding:5px 9px; border-radius:20px; border:1px solid var(--line); color:var(--muted); }
+  .step.running { color:var(--accent); border-color:var(--accent); }
+  .step.running::before { content:"● "; animation:pulse 1s infinite; }
+  .step.done { color:var(--mint); border-color:var(--mint); }
+  .step.done::before { content:"✓ "; }
+  @keyframes pulse { 50% { opacity:.3; } }
+  .feed { border-top:1px solid var(--line); height:470px; overflow-y:auto; padding:12px 16px; font-size:13.5px; }
+  .feed .say { margin:0 0 10px; color:var(--ink); }
+  .feed .info { font:12px/18px var(--mono); color:var(--muted); margin:0 0 8px; }
+  .feed .info b { color:var(--accent); font-weight:400; }
+  .feed .act { font:12px/18px var(--mono); color:var(--muted); margin:0 0 6px; display:flex; gap:8px; align-items:baseline; }
+  .feed .act b { color:var(--mint); font-weight:400; white-space:nowrap; }
+  .feed .act.err b { color:var(--err); }
+  .feed .act span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .feed .thumb { margin:2px 0 10px 28px; width:150px; border:1px solid var(--line); border-radius:3px; display:block; }
+  .feed .done { margin:8px 0; padding:10px 12px; border-left:2px solid var(--accent); background:var(--panel2); }
+  .feed .empty { color:var(--muted); }
+  .right { display:grid; gap:18px; }
+  .screen-head { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); }
+  .badge { font:11px/14px var(--mono); text-transform:uppercase; letter-spacing:.06em; padding:5px 9px; border-radius:20px; border:1px solid var(--line); color:var(--muted); }
+  .badge.live { color:var(--accent); border-color:var(--accent); }
+  .badge.live::before { content:"● "; animation:pulse 1.2s infinite; }
+  .screen { aspect-ratio:4 / 3; background:#0d1f1b; position:relative; }
+  .screen img { width:100%; height:100%; object-fit:contain; display:block; }
+  .screen .placeholder { position:absolute; inset:0; display:grid; place-items:center; color:var(--muted); text-align:center; padding:30px; font-size:14px; }
+  .screen .shield { position:absolute; inset:0; cursor:not-allowed; }
+  .doc { display:none; }
+  .doc.on { display:block; }
+  .doc-body { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; padding:14px; align-items:start; }
+  @media (max-width: 560px) { .doc-body { grid-template-columns:1fr; } }
+  .doc-body img { width:100%; border:1px solid var(--line); border-radius:3px; background:#fff; display:block; }
+  .doc-info { font-size:14px; color:var(--muted); }
+  .doc-info b { color:var(--ink); font-weight:500; }
+  .doc-info ul { padding-left:18px; margin:8px 0 14px; font:12px/18px var(--mono); }
+  a.dl { display:inline-block; font:13px/15px var(--mono); text-transform:uppercase; letter-spacing:.06em; border:1px solid var(--accent);
+         border-radius:20px; padding:11px 18px; color:var(--bg); background:var(--accent); text-decoration:none; }
+  a.dl:hover { background:transparent; color:var(--accent); }
+  a.pdf { display:inline-block; margin-left:12px; font:12px/15px var(--mono); color:var(--accent); text-decoration:none; }
+  .meta { display:flex; justify-content:space-between; gap:12px; padding:10px 14px; border-top:1px solid var(--line);
+          font:11px/16px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--muted); flex-wrap:wrap; }
+</style>
+<script>
+  if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");
+</script>
+</head>
+<body>
+<header>
+  <h1>Computer use agent</h1>
+  <div class="sub">Claude drives Apache OpenOffice on a GNOME desktop inside a Chalk sandbox with no network.</div>
+</header>
+<main>
+  <section class="card left">
+    <div class="compose">
+      <div class="label">Pick a task</div>
+      <div class="chips" id="chips"></div>
+      <div class="task" id="taskText">Loading tasks…</div>
+      <textarea id="custom" maxlength="300" placeholder="Describe a document for the agent to make in OpenOffice, e.g. a packing list for a three-day trip as a spreadsheet with a total weight row."></textarea>
+      <div class="count" id="count">0 / 300</div>
+      <div class="buttons">
+        <button class="go" id="run" data-demo-action="run_agent">Run the agent</button>
+        <button class="stop" id="stop" data-demo-action="stop_agent">Stop</button>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div class="steps">
+      <span class="step" id="st-desktop">Desktop</span>
+      <span class="step" id="st-agent">Agent</span>
+      <span class="step" id="st-document">Document</span>
+    </div>
+    <div class="feed" id="feed"><div class="empty">Each action the agent takes shows up here, with the screenshots it looked at.</div></div>
+  </section>
+  <div class="right">
+    <section class="card">
+      <div class="screen-head">
+        <span class="label">Sandbox desktop · view only</span>
+        <span class="badge" id="badge">Idle</span>
+      </div>
+      <div class="screen">
+        <img id="screen" alt="The sandbox desktop">
+        <div class="placeholder" id="ph">A GNOME desktop with Apache OpenOffice boots in an isolated sandbox when you run the agent.</div>
+        <div class="shield" title="View only: visitors can't control the desktop"></div>
+      </div>
+      <div class="meta"><span id="metaL">gVisor sandbox · no network</span><span id="metaR"></span></div>
+    </section>
+    <section class="card doc" id="doc">
+      <div class="screen-head"><span class="label">The document it saved</span><span class="badge" id="docBadge"></span></div>
+      <div class="doc-body">
+        <img id="docImg" alt="Page one of the saved document">
+        <div class="doc-info">
+          <div><b id="docName"></b></div>
+          <ul id="docFiles"></ul>
+          <a class="dl" id="docDl" href="#" data-demo-action="download_document">Download</a>
+          <a class="pdf" id="docPdf" href="#" target="_blank" rel="noopener" data-demo-action="open_pdf">Open PDF ↗</a>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const inFrame = window.parent !== window;
+let presets = [], selected = null, runId = null, es = null, frameSeq = -1, frameTimer = null, actions = 0, turns = 0;
+
+function track(action, label) {
+  // Fixed action names and preset ids only; typed text never leaves this page.
+  if (inFrame) window.parent.postMessage({ type: "chalk-demo-interaction", action, label }, "*");
+}
+
+function setMsg(text, err) { $("msg").textContent = text || ""; $("msg").className = "msg" + (err ? " err" : ""); }
+
+function select(id) {
+  selected = id;
+  document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c.dataset.id === id));
+  const custom = id === "custom";
+  $("custom").style.display = custom ? "block" : "none";
+  $("count").style.display = custom ? "block" : "none";
+  $("taskText").style.display = custom ? "none" : "block";
+  if (!custom) $("taskText").textContent = presets.find((p) => p.id === id).prompt;
+  else $("custom").focus();
+}
+
+async function loadPresets() {
+  presets = await (await fetch("api/presets")).json();
+  const chips = $("chips");
+  for (const p of [...presets, { id: "custom", label: "Your own task" }]) {
+    const b = document.createElement("button");
+    b.className = "chip"; b.dataset.id = p.id; b.textContent = p.label;
+    b.onclick = () => { select(p.id); track("select_prompt", p.id); };
+    chips.appendChild(b);
+  }
+  select(presets[0].id);
+}
+
+$("custom").addEventListener("input", () => { $("count").textContent = `${$("custom").value.length} / 300`; });
+
+function stepState(step, status) { const el = $("st-" + step); if (el) el.className = "step " + status; }
+
+function feed(node) {
+  const f = $("feed");
+  if (f.querySelector(".empty")) f.innerHTML = "";
+  const stick = f.scrollTop + f.clientHeight >= f.scrollHeight - 40;
+  f.appendChild(node);
+  if (stick) f.scrollTop = f.scrollHeight;
+}
+function el(tag, cls, text) { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+
+function reset() {
+  $("feed").innerHTML = ""; actions = 0; turns = 0; frameSeq = -1;
+  ["desktop", "agent", "document"].forEach((s) => stepState(s, ""));
+  $("doc").classList.remove("on"); $("metaR").textContent = "";
+  $("screen").removeAttribute("src"); $("ph").style.display = "grid";
+  $("ph").textContent = "Starting a desktop…";
+}
+
+function running(on, replay) {
+  $("run").disabled = on; $("stop").style.display = on ? "block" : "none";
+  const badge = $("badge");
+  badge.className = "badge" + (on ? " live" : "");
+  badge.textContent = on ? (replay ? "Recorded run" : "Live") : (runId ? "Finished" : "Idle");
+}
+
+async function pollFrame() {
+  if (!runId) return;
+  try {
+    const r = await fetch(`api/runs/${runId}/frame?after=${frameSeq}`, { cache: "no-store" });
+    if (r.status === 200) {
+      frameSeq = parseInt(r.headers.get("X-Frame-Seq") || "0", 10);
+      const url = URL.createObjectURL(await r.blob());
+      const img = $("screen"); const old = img.src;
+      img.onload = () => { if (old.startsWith("blob:")) URL.revokeObjectURL(old); };
+      img.src = url; $("ph").style.display = "none";
+    }
+  } catch (e) { /* transient; the next poll retries */ }
+}
+
+function handle(ev) {
+  switch (ev.t) {
+    case "hello":
+      running(true, ev.replay);
+      if (ev.replay) feed(el("div", "info", "Both live desktops are busy, so this is a recorded run of the same task, played back at speed."));
+      break;
+    case "step": stepState(ev.step, ev.status); break;
+    case "sandbox": {
+      const n = el("div", "info");
+      n.innerHTML = `<b>sandbox</b> ${ev.warm ? "warm desktop" : "booted"} in ${ev.seconds}s · ${ev.kernel} · ${ev.egress}`;
+      feed(n);
+      $("metaL").textContent = ev.desktop;
+      break;
+    }
+    case "model": { const n = el("div", "info"); n.innerHTML = `<b>model</b> ${ev.model} · effort ${ev.effort} · computer toolset`; feed(n); break; }
+    case "turn":
+      turns = ev.turn;
+      if (ev.note) feed(el("div", "say", ev.note));
+      $("metaR").textContent = `turn ${turns} · ${actions} actions`;
+      break;
+    case "action": {
+      actions = ev.n;
+      const row = el("div", "act" + (ev.error ? " err" : ""));
+      row.appendChild(el("b", null, String(ev.n).padStart(2, "0")));
+      row.appendChild(el("span", null, ev.label + (ev.error ? ` — ${ev.error}` : "")));
+      feed(row);
+      if (ev.thumb) { const im = el("img", "thumb"); im.src = "data:image/jpeg;base64," + ev.thumb; im.alt = "Screenshot the agent took"; feed(im); }
+      $("metaR").textContent = `turn ${turns} · ${actions} actions`;
+      break;
+    }
+    case "agent_end": {
+      const reasons = { done: "Done.", stopped: "Stopped.", time_limit: "Stopped at the run's time limit.", turn_limit: "Stopped at the step limit.", refusal: "The model declined this task." };
+      const n = el("div", "done", (ev.summary ? ev.summary + " " : "") + (ev.reason === "done" ? "" : reasons[ev.reason] || ""));
+      if (n.textContent.trim()) feed(n);
+      break;
+    }
+    case "document": {
+      if (!ev.found) { feed(el("div", "info", "The agent didn't save a document.")); break; }
+      $("doc").classList.add("on");
+      $("docName").textContent = ev.name;
+      $("docBadge").textContent = `${(ev.bytes / 1024).toFixed(1)} KB`;
+      const ul = $("docFiles"); ul.innerHTML = "";
+      for (const f of ev.files || []) ul.appendChild(el("li", null, `${f.name} · ${(f.bytes / 1024).toFixed(1)} KB`));
+      $("docDl").href = `api/runs/${runId}/document`;
+      $("docImg").style.display = ev.has_png ? "block" : "none";
+      if (ev.has_png) $("docImg").src = `api/runs/${runId}/preview.png?${Date.now()}`;
+      $("docPdf").style.display = ev.has_pdf ? "inline-block" : "none";
+      $("docPdf").href = `api/runs/${runId}/preview.pdf`;
+      track("document_ready", (presets.find((p) => p.id === selected) ? selected : "custom"));
+      break;
+    }
+    case "error": setMsg(ev.message, true); feed(el("div", "info", "Error: " + ev.message)); break;
+    case "end":
+      running(false); es && es.close(); es = null;
+      setTimeout(pollFrame, 400);
+      clearInterval(frameTimer); frameTimer = null;
+      track("run_finished", selected === "custom" ? "custom" : selected);
+      break;
+  }
+}
+
+async function run() {
+  setMsg("");
+  const body = selected === "custom" ? { prompt: $("custom").value } : { preset: selected };
+  if (selected === "custom" && $("custom").value.trim().length < 12) { setMsg("Describe the document in a sentence.", true); return; }
+  $("run").disabled = true;
+  track("run_agent", selected === "custom" ? "custom" : selected);
+  let r, data;
+  try { r = await fetch("api/runs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); data = await r.json(); }
+  catch (e) { setMsg("Couldn't reach the demo server.", true); $("run").disabled = false; return; }
+  if (!r.ok) { setMsg(data.error || "Couldn't start a run.", true); $("run").disabled = false; track("run_refused", r.status === 429 ? "busy_or_limit" : "invalid"); return; }
+  runId = data.id; reset(); running(true, data.replay);
+  // On a reconnect the server replays the run from the start; skip what was already shown.
+  let seen = 0, skip = 0;
+  es = new EventSource(`api/runs/${runId}/events`);
+  es.onmessage = (m) => {
+    const ev = JSON.parse(m.data);
+    if (ev.t === "hello") { skip = seen; if (seen) return; }
+    else if (skip > 0) { skip--; return; }
+    else seen++;
+    handle(ev);
+  };
+  frameTimer = setInterval(pollFrame, 300);
+}
+
+$("run").onclick = run;
+$("stop").onclick = async () => { if (!runId) return; track("stop_agent", selected === "custom" ? "custom" : selected); await fetch(`api/runs/${runId}/stop`, { method: "POST" }); setMsg("Stopping after the current step…"); };
+$("docDl").addEventListener("click", () => track("download_document", selected === "custom" ? "custom" : selected));
+loadPresets();
+if (inFrame) {
+  // The embedding page sizes its iframe to fit this page.
+  const report = () => window.parent.postMessage(
+    { type: "chalk-demo-height", height: Math.ceil(document.body.getBoundingClientRect().height) }, "*");
+  new ResizeObserver(report).observe(document.body);
+}
+</script>
+</body>
+</html>
