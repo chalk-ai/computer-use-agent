@@ -79,6 +79,7 @@
   a.pdf { display:inline-block; margin-left:12px; font:12px/15px var(--mono); color:var(--accent); text-decoration:none; }
   .meta { display:flex; justify-content:space-between; gap:12px; padding:10px 14px; border-top:1px solid var(--line);
           font:11px/16px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--muted); flex-wrap:wrap; }
+  #screen:not([src]) { visibility: hidden; }
 </style>
 <script>
   if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");
