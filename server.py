@@ -182,7 +182,7 @@ def router_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(
         base_url=os.environ.get("AGENT_ROUTER_BASE_URL", f"{api}/v1/router"),
         api_key=os.environ["ROUTER_API_KEY"],
-        default_headers={"X-Chalk-Env-Id": os.environ["CHALK_ENVIRONMENT_ID"]},
+        default_headers={"X-Chalk-Env-Id": os.environ["CHALK_ENVIRONMENT"]},
         max_retries=3,
         timeout=180.0,
     )
