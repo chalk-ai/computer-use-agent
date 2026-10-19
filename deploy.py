@@ -21,7 +21,6 @@ CHALK_* env vars):
 
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
 
@@ -37,22 +36,7 @@ APP_FILES = [
 ]
 
 
-def configure_chalk() -> None:
-    """Resolve deployment routing settings using the SDK's ambient login."""
-    from chalkcompute import ConnectClient
-
-    client = ConnectClient()
-    try:
-        client._ensure_auth()
-        # Only routing settings are needed by the deployed app; credentials stay in the SDK.
-        os.environ["CHALK_API_SERVER"] = client._api_server
-        os.environ["CHALK_ENVIRONMENT_ID"] = client._env_id
-    finally:
-        client.close()
-
-
 def main() -> None:
-    configure_chalk()
     from chalkcompute import Image, ScalingGroup, Secret
 
     image = Image.debian_slim(python_version="3.12").pip_install(
@@ -70,9 +54,7 @@ def main() -> None:
         cpu="1",
         memory="2Gi",
         env={
-            # Not secrets: which API the workload identity talks to, and where the gateway lives.
-            "CHALK_API_SERVER": os.environ["CHALK_API_SERVER"],
-            "CHALK_ENVIRONMENT_ID": os.environ["CHALK_ENVIRONMENT_ID"],
+
             "PORT": "8080",
             "AGENT_MODEL": 'anthropic/claude-opus-5-5',
             "AGENT_EFFORT": 'medium',

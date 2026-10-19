@@ -42,7 +42,7 @@ How it fits together:
 ## Run it
 
 You need [`uv`](https://docs.astral.sh/uv/) and a Chalk environment with the model gateway
-enabled (`chalk router status`). Credentials come from the SDK’s ambient credentials from `chalk login`.
+enabled (`chalk router status`). Credentials come from your existing `chalk login`.
 
 ```bash
 chalk login
