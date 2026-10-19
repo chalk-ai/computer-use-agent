@@ -14,7 +14,7 @@ Requirements on the target environment:
   - the Chalk model gateway (router) is enabled
   - a secret holds a gateway API key, CHALK_ROUTER_API_KEY by default
 
-Credentials for the deploy itself come from `chalk config` in the current directory (or the
+Credentials for the deploy itself come from your existing `chalk login` (or the
 CHALK_* env vars):
     ./deploy.py [--env-id <environment>] [--name computer-use-agent]
 """
@@ -22,9 +22,7 @@ CHALK_* env vars):
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import subprocess
 import time
 from pathlib import Path
 
@@ -40,21 +38,26 @@ APP_FILES = [
 ]
 
 
-def load_chalk_env(env_id: str | None) -> None:
-    if "CHALK_CLIENT_ID" not in os.environ:
-        cfg = json.loads(subprocess.check_output(["chalk", "config", "--json"]))
-        os.environ["CHALK_API_SERVER"] = cfg["apiServer"]["value"]
-        os.environ["CHALK_CLIENT_ID"] = cfg["clientId"]["value"]
-        os.environ["CHALK_CLIENT_SECRET"] = cfg["clientSecret"]["value"]
-        os.environ.setdefault("CHALK_ENVIRONMENT_ID", cfg["environment"]["value"])
+def configure_chalk(env_id: str | None) -> None:
+    """Resolve deployment routing settings using the SDK's ambient login."""
+    from chalkcompute import ConnectClient
+
     if env_id:
-        os.environ["CHALK_ENVIRONMENT_ID"] = env_id
+        os.environ["CHALK_ENVIRONMENT"] = env_id
+    client = ConnectClient()
+    try:
+        client._ensure_auth()
+        # Only routing settings are needed by the deployed app; credentials stay in the SDK.
+        os.environ["CHALK_API_SERVER"] = client._api_server
+        os.environ["CHALK_ENVIRONMENT_ID"] = client._env_id
+    finally:
+        client.close()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", default="computer-use-agent")
-    # Defaults to the environment in `chalk config` (or CHALK_ENVIRONMENT_ID).
+    # Defaults to the environment in your existing `chalk login` (or CHALK_ENVIRONMENT_ID).
     parser.add_argument("--env-id", default=None)
     parser.add_argument("--model", default="anthropic/claude-opus-5-5")
     parser.add_argument("--effort", default="medium")
@@ -65,7 +68,7 @@ def main() -> None:
     parser.add_argument("--ready-timeout", type=float, default=900.0)
     args = parser.parse_args()
 
-    load_chalk_env(args.env_id)
+    configure_chalk(args.env_id)
     from chalkcompute import Image, ScalingGroup, Secret
 
     image = Image.debian_slim(python_version="3.12").pip_install(
